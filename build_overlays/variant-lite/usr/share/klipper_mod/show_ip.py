@@ -34,9 +34,11 @@ def get_ip(timeout=30):
     while time.monotonic() < deadline:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
-            s.close()
+            try:
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+            finally:
+                s.close()
             return ip
         except OSError:
             pass
@@ -53,6 +55,8 @@ def get_fb_info():
 
 
 def encode_pixel(r, g, b, bpp):
+    if bpp not in (16, 24, 32):
+        raise ValueError(f"Unsupported bits-per-pixel: {bpp}")
     if bpp == 16:
         return struct.pack('<H', ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
     if bpp == 24:
@@ -77,9 +81,8 @@ def draw(text, fb_w, fb_h, bpp, stride):
     with open('/dev/fb0', 'r+b') as fb:
         for row in range(ch):
             glyph_row = row // SCALE          # which of the 8 bitmap rows
-            sub_row   = row % SCALE           # pixel repeat within that row
             line = bytearray()
-            for ci, ch_char in enumerate(text):
+            for ch_char in text:
                 bits = GLYPHS.get(ch_char, GLYPHS[' '])[glyph_row]
                 for col in range(8):
                     px = fg_px if (bits >> (7 - col)) & 1 else bg_px
@@ -95,7 +98,7 @@ def main():
         return  # no framebuffer device — nothing to do
 
     ip = get_ip()
-    text = ip if ip else "No network"
+    text = ip if ip else "0.0.0.0"
 
     try:
         draw(text, fb_w, fb_h, bpp, stride)
