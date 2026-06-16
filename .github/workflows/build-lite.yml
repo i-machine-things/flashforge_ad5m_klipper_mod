@@ -10,6 +10,11 @@ on:
       - '.github/workflows/build-lite.yml'
   pull_request:
     branches: [master]
+    paths:
+      - 'build_overlays/**'
+      - 'build_scripts/**'
+      - 'printer_configs/**'
+      - '.github/workflows/build-lite.yml'
   workflow_dispatch:
 
 jobs:
@@ -39,7 +44,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: submodules/buildroot/dl
-          key: br-dl-${{ hashFiles('build_scripts/buildroot/configs/**') }}-${{ github.sha }}
+          key: br-dl-${{ hashFiles('build_scripts/buildroot/configs/**') }}
           restore-keys: |
             br-dl-${{ hashFiles('build_scripts/buildroot/configs/**') }}-
             br-dl-

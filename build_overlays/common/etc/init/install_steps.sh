@@ -97,7 +97,7 @@ if ls /var/lib/iwd/*.psk > /dev/null 2>&1; then
         echo "WiFi did not connect within 30s"
     fi
     iwctl station wlan0 show 2>/dev/null || true
-    kill $(pidof iwd) 2>/dev/null || true
+    kill "$(pidof iwd)" 2>/dev/null || true
 else
     echo "=== No WiFi profiles configured ==="
 fi
