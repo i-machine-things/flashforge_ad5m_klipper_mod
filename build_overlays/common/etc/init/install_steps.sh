@@ -74,6 +74,35 @@ else
 fi
 
 ##############################
+# check wifi connectivity
+##############################
+
+if ls /var/lib/iwd/*.psk > /dev/null 2>&1; then
+    echo "=== WiFi Connectivity Check ==="
+    iwd &
+    sleep 8
+
+    WIFI_IP=""
+    WIFI_WAIT=0
+    while [ $WIFI_WAIT -lt 22 ]; do
+        WIFI_IP=$(ip -4 addr show wlan0 2>/dev/null | grep 'inet ' | sed 's/.*inet \([0-9.\/]*\).*/\1/')
+        [ -n "$WIFI_IP" ] && break
+        sleep 1
+        WIFI_WAIT=$((WIFI_WAIT + 1))
+    done
+
+    if [ -n "$WIFI_IP" ]; then
+        echo "WiFi connected! IP: $WIFI_IP"
+    else
+        echo "WiFi did not connect within 30s"
+    fi
+    iwctl station wlan0 show 2>/dev/null || true
+    kill $(pidof iwd) 2>/dev/null || true
+else
+    echo "=== No WiFi profiles configured ==="
+fi
+
+##############################
 # install done
 ##############################
 
