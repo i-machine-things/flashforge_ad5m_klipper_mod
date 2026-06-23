@@ -80,7 +80,11 @@ fi
 if ls /var/lib/iwd/*.psk > /dev/null 2>&1; then
     echo "=== WiFi Connectivity Check ==="
     iwd &
+    IWD_PID=$!
     sleep 8
+    if ! kill -0 $IWD_PID 2>/dev/null; then
+        echo "Failed to start iwd daemon"
+    fi
 
     WIFI_IP=""
     WIFI_WAIT=0
