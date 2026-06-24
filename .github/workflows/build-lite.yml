@@ -67,6 +67,40 @@ jobs:
             br-host-${{ hashFiles('build_scripts/buildroot/configs/**') }}-
             br-host-
 
+      - name: Pre-download large toolchain sources
+        run: |
+          # buildroot's mirrors (ftpmirror.gnu.org) are unreliable for GCC.
+          # Pre-download to the buildroot DL cache so the build never fetches live.
+          GCC_VER="14.2.0"
+          GCC_FILE="gcc-${GCC_VER}.tar.xz"
+          GCC_DIR="submodules/buildroot/dl/gcc"
+          mkdir -p "${GCC_DIR}"
+          if [ -f "${GCC_DIR}/${GCC_FILE}" ]; then
+            echo "GCC already in download cache — skipping"
+          else
+            echo "Downloading ${GCC_FILE}..."
+            DOWNLOADED=false
+            for URL in \
+              "https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VER}/${GCC_FILE}" \
+              "https://mirrors.kernel.org/gnu/gcc/gcc-${GCC_VER}/${GCC_FILE}" \
+              "https://gcc.gnu.org/pub/gcc/releases/gcc-${GCC_VER}/${GCC_FILE}"; do
+              echo "  Trying ${URL}"
+              if wget -q -t 3 --connect-timeout=30 \
+                   -O "${GCC_DIR}/${GCC_FILE}.tmp" "${URL}" && \
+                 [ -s "${GCC_DIR}/${GCC_FILE}.tmp" ]; then
+                mv "${GCC_DIR}/${GCC_FILE}.tmp" "${GCC_DIR}/${GCC_FILE}"
+                echo "  OK — downloaded from ${URL}"
+                DOWNLOADED=true
+                break
+              fi
+              rm -f "${GCC_DIR}/${GCC_FILE}.tmp"
+              echo "  FAILED — trying next mirror"
+            done
+            if [ "${DOWNLOADED}" = false ]; then
+              echo "WARNING: could not pre-download GCC; buildroot will attempt its own download"
+            fi
+          fi
+
       - name: Prepare SDK
         run: ./build_scripts/build.sh prepare_sdk
 
