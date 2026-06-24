@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build_output/buildroot/sdk
-          key: br-sdk-${{ hashFiles('build_scripts/buildroot/configs/sdk') }}-${{ hashFiles('submodules/buildroot/.git') }}
+          key: br-sdk-${{ hashFiles('build_scripts/buildroot/configs/sdk') }}-${{ hashFiles('.git/modules/submodules/buildroot/HEAD') }}
           restore-keys: |
             br-sdk-${{ hashFiles('build_scripts/buildroot/configs/sdk') }}-
             br-sdk-
@@ -74,7 +74,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build_output/buildroot/variant-lite/host
-          key: br-host-${{ hashFiles('build_scripts/buildroot/configs/**') }}-${{ hashFiles('submodules/buildroot/.git') }}
+          key: br-host-${{ hashFiles('build_scripts/buildroot/configs/**') }}-${{ hashFiles('.git/modules/submodules/buildroot/HEAD') }}
           restore-keys: |
             br-host-${{ hashFiles('build_scripts/buildroot/configs/**') }}-
             br-host-
