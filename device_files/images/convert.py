@@ -67,7 +67,6 @@ def _draw_ip_placeholder(img: Image.Image) -> None:
 
 def png_to_fb_xz(src: Path, dst: Path) -> None:
     img = Image.open(src).convert("RGBA")
-    _draw_ip_placeholder(img)
 
     canvas = Image.new("RGBA", (FB_W, FB_H), (0, 0, 0, 0))
     canvas.paste(img, (0, 0))
