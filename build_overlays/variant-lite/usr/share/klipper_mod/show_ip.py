@@ -83,11 +83,18 @@ def draw(text, fb_w, fb_h, bpp, stride):
     x0 = max(0, (fb_w - text_w) // 2)
     y0 = fb_h - ch - 12
 
-    # Build pixel data row by row to avoid allocating the full framebuffer
     fg_px = encode_pixel(*FG, bpp)
     bg_px = encode_pixel(*BG, bpp)
+    blank_row = bg_px * fb_w
 
     with open('/dev/fb0', 'r+b') as fb:
+        # Clear the whole strip (separator + text height + margin) so the
+        # static placeholder baked into the img.xz is fully overwritten,
+        # regardless of whether this IP is longer or shorter than 0.0.0.0.
+        for row in range(y0 - 9, fb_h):
+            fb.seek(row * stride)
+            fb.write(blank_row)
+
         for row in range(ch):
             glyph_row = row // SCALE          # which of the 8 bitmap rows
             line = bytearray()
