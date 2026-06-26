@@ -107,7 +107,7 @@ def main():
         return  # no framebuffer device — nothing to do
 
     ip = get_ip()
-    text = ip if ip else "0.0.0.0"
+    text = "IP  " + (ip if ip else "0.0.0.0")
 
     try:
         draw(text, fb_w, fb_h, bpp, stride)
