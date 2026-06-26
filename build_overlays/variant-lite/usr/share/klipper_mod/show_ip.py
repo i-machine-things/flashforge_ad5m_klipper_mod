@@ -47,8 +47,17 @@ def get_ip(timeout=30):
 
 
 def get_fb_info():
-    with open('/sys/class/graphics/fb0/virtual_size') as f:
-        w, h = map(int, f.read().strip().split(','))
+    # Read physical size from the active mode string (e.g. "U:480x272p-0").
+    # virtual_size can be double the physical height when the driver uses
+    # page-flipping, which would push the overlay text off-screen.
+    try:
+        with open('/sys/class/graphics/fb0/modes') as f:
+            first_mode = f.read().strip().split('\n')[0]
+        res = first_mode.split(':')[-1].split('p')[0]   # "480x272"
+        w, h = map(int, res.split('x'))
+    except Exception:
+        with open('/sys/class/graphics/fb0/virtual_size') as f:
+            w, h = map(int, f.read().strip().split(','))
     with open('/sys/class/graphics/fb0/bits_per_pixel') as f:
         bpp = int(f.read().strip())
     return w, h, bpp, w * (bpp // 8)
