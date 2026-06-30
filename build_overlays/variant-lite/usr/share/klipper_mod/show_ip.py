@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Overlay the IP address onto the framebuffer once, then exit.
+"""Overlay the IP address and WiFi status onto the framebuffer once, then exit.
 Only stdlib is used to keep the memory footprint small."""
 
 import os
@@ -7,7 +7,7 @@ import socket
 import struct
 import time
 
-# 8x8 bitmap font — digits, dot, space, and slash for CIDR (unused but kept)
+# 8x8 bitmap font — digits, dot, space, and colon
 GLYPHS = {
     ' ': [0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00],
     '.': [0x00,0x00,0x00,0x00,0x00,0x18,0x18,0x00],
@@ -27,6 +27,15 @@ GLYPHS = {
 SCALE = 3           # 8x8 → 24x24 px per char; readable on the 480x272 panel
 FG = (255, 255, 255)
 BG = (0, 0, 0)
+
+# WiFi status indicator colors (solid square drawn left of the IP text)
+COLOR_WIFI_OK  = (0, 220, 0)    # green — connected, has IP
+COLOR_WIFI_NO  = (220, 0, 0)    # red   — wlan0 exists but no IP (bad PSK?)
+COLOR_WIFI_OFF = (200, 120, 0)  # amber — no wlan0 interface at all
+
+
+def wlan_exists():
+    return os.path.exists('/sys/class/net/wlan0')
 
 
 def get_ip(timeout=30):
@@ -73,37 +82,46 @@ def encode_pixel(r, g, b, bpp):
     return struct.pack('BBBB', b, g, r, 0xFF)   # 32-bit BGRA
 
 
-def draw(text, fb_w, fb_h, bpp, stride):
+def draw(text, indicator_color, fb_w, fb_h, bpp, stride):
     ppb = bpp // 8
     cw = 8 * SCALE
     ch = 8 * SCALE
+    ind_w = cw          # indicator square: same width as one character
+    gap_w = cw // 2     # half-char gap between indicator and text
     text_w = len(text) * cw
+    total_w = ind_w + gap_w + text_w
 
-    # Centre horizontally, place near bottom with a small margin
-    x0 = max(0, (fb_w - text_w) // 2)
+    # Centre the indicator+text block horizontally, near bottom
+    x0 = max(0, (fb_w - total_w) // 2)
     y0 = fb_h - ch - 12
 
-    fg_px = encode_pixel(*FG, bpp)
-    bg_px = encode_pixel(*BG, bpp)
+    fg_px  = encode_pixel(*FG, bpp)
+    bg_px  = encode_pixel(*BG, bpp)
+    ind_px = encode_pixel(*indicator_color, bpp)
     blank_row = bg_px * fb_w
 
     with open('/dev/fb0', 'r+b') as fb:
-        # Clear the whole strip (separator + text height + margin) so the
-        # static placeholder baked into the img.xz is fully overwritten,
-        # regardless of whether this IP is longer or shorter than 0.0.0.0.
+        # Clear the whole strip so the static placeholder is fully overwritten
         for row in range(y0 - 9, fb_h):
             fb.seek(row * stride)
             fb.write(blank_row)
 
+        # Solid colored WiFi status indicator square
         for row in range(ch):
-            glyph_row = row // SCALE          # which of the 8 bitmap rows
+            fb.seek((y0 + row) * stride + x0 * ppb)
+            fb.write(ind_px * ind_w)
+
+        # IP address text to the right of the indicator
+        text_x0 = x0 + ind_w + gap_w
+        for row in range(ch):
+            glyph_row = row // SCALE
             line = bytearray()
             for ch_char in text:
                 bits = GLYPHS.get(ch_char, GLYPHS[' '])[glyph_row]
                 for col in range(8):
                     px = fg_px if (bits >> (7 - col)) & 1 else bg_px
-                    line += px * SCALE        # horizontal scale
-            fb.seek((y0 + row) * stride + x0 * ppb)
+                    line += px * SCALE
+            fb.seek((y0 + row) * stride + text_x0 * ppb)
             fb.write(bytes(line))
 
 
@@ -114,10 +132,19 @@ def main():
         return  # no framebuffer device — nothing to do
 
     ip = get_ip()
-    text = "IP  " + (ip if ip else "0.0.0.0")
+
+    if ip:
+        indicator = COLOR_WIFI_OK
+        text = ip
+    elif wlan_exists():
+        indicator = COLOR_WIFI_NO
+        text = "0.0.0.0"
+    else:
+        indicator = COLOR_WIFI_OFF
+        text = "0.0.0.0"
 
     try:
-        draw(text, fb_w, fb_h, bpp, stride)
+        draw(text, indicator, fb_w, fb_h, bpp, stride)
     except OSError:
         pass
 
