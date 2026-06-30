@@ -41,33 +41,58 @@ _GLYPHS = {
     '8': [0x3C, 0x66, 0x66, 0x3C, 0x66, 0x66, 0x3C, 0x00],
     '9': [0x3C, 0x66, 0x66, 0x3E, 0x06, 0x66, 0x3C, 0x00],
 }
-_SCALE = 3                  # matches show_ip.py SCALE
-_ICON_SIZE = 24             # matches show_ip.py ICON_SIZE
-_PLACEHOLDER = "0.0.0.0"   # IP text shown in placeholder
-_FG = (72, 72, 72, 255)    # dim gray so it reads as "placeholder"
+_SCALE       = 3    # matches show_ip.py SCALE
+_SCALE_SMALL = 2    # matches show_ip.py SCALE_SMALL
+_ICON_SIZE   = 24   # matches show_ip.py ICON_SIZE
+_PLACEHOLDER = "0.0.0.0"
+_PORTS       = [4000, 4001, 7125]           # Mainsail, Fluidd, Moonraker
+_FG     = (72, 72, 72, 255)                 # dim gray for placeholder IP text
+_FG_DIM = (45, 45, 45, 255)                 # dimmer gray for placeholder ports
 
 
 def _draw_ip_placeholder(img: Image.Image) -> None:
-    """Burn a dim WiFi-disconnected icon + '0.0.0.0' at show_ip.py's render position."""
+    """Burn a dim disconnected-icon + '0.0.0.0' + port line at show_ip.py's render position."""
     w = img.width
-    cw = ch = 8 * _SCALE
-    gap_w = cw // 2     # half-char gap between icon and text
-    text_w = len(_PLACEHOLDER) * cw
-    total_w = _ICON_SIZE + gap_w + text_w
-    x0 = max(0, (w - total_w) // 2)    # left edge of icon
-    y0 = PHYS_H - ch - 12              # mirrors: fb_h - ch - 12 in show_ip.py
+    cw   = 8 * _SCALE
+    ch   = 8 * _SCALE
+    cw_s = 8 * _SCALE_SMALL
+    ch_s = 8 * _SCALE_SMALL
+
+    # Main line position (mirrors show_ip.py)
+    gap_w  = cw // 2
+    total_w = _ICON_SIZE + gap_w + len(_PLACEHOLDER) * cw
+    x0 = max(0, (w - total_w) // 2)
+    y0 = PHYS_H - ch - 12
+
+    # Port line position (mirrors show_ip.py)
+    port_text = " ".join(f":{p}" for p in _PORTS)
+    x0_port = max(0, (w - len(port_text) * cw_s) // 2)
+    y0_port = y0 - ch_s - 4
 
     draw = ImageDraw.Draw(img)
-    # Separator line a few pixels above the placeholder
-    draw.line([(40, y0 - 8), (w - 40, y0 - 8)], fill=(55, 55, 55, 255), width=1)
+    # Separator above the port line
+    draw.line([(40, y0_port - 8), (w - 40, y0_port - 8)], fill=(55, 55, 55, 255), width=1)
 
-    # WiFi disconnected icon, dimmed to 30% so it reads as a placeholder
+    # Port numbers placeholder
+    px = img.load()
+    for row in range(ch_s):
+        glyph_row = row // _SCALE_SMALL
+        for ci, char in enumerate(port_text):
+            bits = _GLYPHS.get(char, _GLYPHS[' '])[glyph_row]
+            for col in range(8):
+                if (bits >> (7 - col)) & 1:
+                    for sx in range(_SCALE_SMALL):
+                        px_x = x0_port + ci * cw_s + col * _SCALE_SMALL + sx
+                        px_y = y0_port + row
+                        if 0 <= px_x < w and 0 <= px_y < PHYS_H:
+                            px[px_x, px_y] = _FG_DIM
+
+    # WiFi disconnected icon, dimmed to 30%
     icon_path = here / "wifi_disconnected.png"
     if icon_path.exists():
         icon = Image.open(icon_path).convert("RGBA")
         if icon.size != (_ICON_SIZE, _ICON_SIZE):
             icon = icon.resize((_ICON_SIZE, _ICON_SIZE), Image.LANCZOS)
-        # Dim to 30%
         r, g, b, a = icon.split()
         r = r.point(lambda v: v * 30 // 100)
         g = g.point(lambda v: v * 30 // 100)
@@ -75,9 +100,8 @@ def _draw_ip_placeholder(img: Image.Image) -> None:
         icon = Image.merge("RGBA", (r, g, b, a))
         img.paste(icon, (x0, y0), mask=icon.split()[3])
 
-    # Bitmap glyph text to the right of the icon
+    # IP address placeholder text
     text_x0 = x0 + _ICON_SIZE + gap_w
-    px = img.load()
     for row in range(ch):
         glyph_row = row // _SCALE
         for ci, char in enumerate(_PLACEHOLDER):
