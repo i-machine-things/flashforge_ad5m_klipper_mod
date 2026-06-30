@@ -135,12 +135,13 @@ def png_to_fb_xz(src: Path, dst: Path) -> None:
 here = Path(__file__).parent
 fb_dir = here / "fb"
 
-# Exclude wifi_*.png — those are icon assets used by this script, not screen images
-pngs = sorted(p for p in here.glob("*.png") if not p.name.startswith("wifi_"))
-if not pngs:
-    sys.exit("No PNG files found in " + str(here))
+if __name__ == "__main__":
+    # Exclude wifi_*.png — those are icon assets used by this script, not screen images
+    pngs = sorted(p for p in here.glob("*.png") if not p.name.startswith("wifi_"))
+    if not pngs:
+        sys.exit("No PNG files found in " + str(here))
 
-print(f"Converting {len(pngs)} PNG(s) -> {fb_dir}/")
-for png in pngs:
-    png_to_fb_xz(png, fb_dir / (png.stem + ".img.xz"))
-print("Done.")
+    print(f"Converting {len(pngs)} PNG(s) -> {fb_dir}/")
+    for png in pngs:
+        png_to_fb_xz(png, fb_dir / (png.stem + ".img.xz"))
+    print("Done.")
