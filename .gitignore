@@ -3,4 +3,6 @@ device_files/images/fb
 *.md.backup
 *.psk
 *.log
+Thumbs.db
+.claude/scheduled_tasks.lock
 
