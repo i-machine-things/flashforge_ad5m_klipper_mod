@@ -42,31 +42,41 @@ _GLYPHS = {
     '9': [0x3C, 0x66, 0x66, 0x3E, 0x06, 0x66, 0x3C, 0x00],
 }
 _SCALE = 3                  # matches show_ip.py SCALE
+_ICON_SIZE = 24             # matches show_ip.py ICON_SIZE
 _PLACEHOLDER = "0.0.0.0"   # IP text shown in placeholder
 _FG = (72, 72, 72, 255)    # dim gray so it reads as "placeholder"
-_IND_COLOR = (55, 55, 55, 255)  # dim grey indicator square (matches separator)
 
 
 def _draw_ip_placeholder(img: Image.Image) -> None:
-    """Burn a dim status-square + '0.0.0.0' onto the image at show_ip.py's render position."""
+    """Burn a dim WiFi-disconnected icon + '0.0.0.0' at show_ip.py's render position."""
     w = img.width
     cw = ch = 8 * _SCALE
-    ind_w = cw          # indicator square: same width as one character
-    gap_w = cw // 2     # half-char gap between indicator and text
+    gap_w = cw // 2     # half-char gap between icon and text
     text_w = len(_PLACEHOLDER) * cw
-    total_w = ind_w + gap_w + text_w
-    x0 = max(0, (w - total_w) // 2)    # left edge of indicator
+    total_w = _ICON_SIZE + gap_w + text_w
+    x0 = max(0, (w - total_w) // 2)    # left edge of icon
     y0 = PHYS_H - ch - 12              # mirrors: fb_h - ch - 12 in show_ip.py
 
     draw = ImageDraw.Draw(img)
     # Separator line a few pixels above the placeholder
     draw.line([(40, y0 - 8), (w - 40, y0 - 8)], fill=(55, 55, 55, 255), width=1)
 
-    # Dim grey indicator square (matches shape of runtime WiFi status square)
-    draw.rectangle([x0, y0, x0 + ind_w - 1, y0 + ch - 1], fill=_IND_COLOR)
+    # WiFi disconnected icon, dimmed to 30% so it reads as a placeholder
+    icon_path = here / "wifi_disconnected.png"
+    if icon_path.exists():
+        icon = Image.open(icon_path).convert("RGBA")
+        if icon.size != (_ICON_SIZE, _ICON_SIZE):
+            icon = icon.resize((_ICON_SIZE, _ICON_SIZE), Image.LANCZOS)
+        # Dim to 30%
+        r, g, b, a = icon.split()
+        r = r.point(lambda v: v * 30 // 100)
+        g = g.point(lambda v: v * 30 // 100)
+        b = b.point(lambda v: v * 30 // 100)
+        icon = Image.merge("RGBA", (r, g, b, a))
+        img.paste(icon, (x0, y0), mask=icon.split()[3])
 
-    # Bitmap glyph text to the right of the indicator
-    text_x0 = x0 + ind_w + gap_w
+    # Bitmap glyph text to the right of the icon
+    text_x0 = x0 + _ICON_SIZE + gap_w
     px = img.load()
     for row in range(ch):
         glyph_row = row // _SCALE
@@ -101,7 +111,8 @@ def png_to_fb_xz(src: Path, dst: Path) -> None:
 here = Path(__file__).parent
 fb_dir = here / "fb"
 
-pngs = sorted(here.glob("*.png"))
+# Exclude wifi_*.png — those are icon assets used by this script, not screen images
+pngs = sorted(p for p in here.glob("*.png") if not p.name.startswith("wifi_"))
 if not pngs:
     sys.exit("No PNG files found in " + str(here))
 

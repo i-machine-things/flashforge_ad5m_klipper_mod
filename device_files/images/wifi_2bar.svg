@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25">
+  <!-- dot -->
+  <circle cx="12.5" cy="20" r="1.5" fill="#22C55E"/>
+  <!-- inner arc (active) -->
+  <path d="M 9.67 17.17 A 4 4 0 0 1 15.33 17.17" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
+  <!-- middle arc (active) -->
+  <path d="M 6.84 14.34 A 8 8 0 0 1 18.16 14.34" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
+  <!-- outer arc (inactive) -->
+  <path d="M 4.02 11.52 A 12 12 0 0 1 20.98 11.52" fill="none" stroke="#444444" stroke-width="2" stroke-linecap="round"/>
+</svg>
