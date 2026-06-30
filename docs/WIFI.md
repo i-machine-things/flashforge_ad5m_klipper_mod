@@ -28,14 +28,17 @@ To setup WiFi using this method you can add a file to the `klipper_mod` director
 Create the USB drive file: `klipper_mod/var/lib/iwd/EXAMPLE_SSID.psk`
 ```conf
 [Settings]
-AutoConnect=True
+AutoConnect=true
 
 [Security]
-Passphrase=********
+Passphrase=YourPasswordHere
 ```
 
+A ready-to-use template is provided at [`docs/EXAMPLE_SSID.psk`](EXAMPLE_SSID.psk) — rename it to match your SSID exactly and fill in your passphrase.
+
 > [!WARNING]
-> Make sure you use linux line endings and do NOT use windows notepad to create or edit the file.
+> The filename must match your SSID **exactly** (case-sensitive, spaces included).
+> The file **must** use Unix line endings (LF). Do NOT use Windows Notepad — use VS Code, Notepad++, or similar and confirm the line ending is LF before saving.
 
 Install the mod as described in [Install](INSTALL.md) and after installation the printer should connect to your network.
 

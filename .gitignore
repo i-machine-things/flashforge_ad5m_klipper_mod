@@ -2,6 +2,7 @@ build_output/*
 device_files/images/fb
 *.md.backup
 *.psk
+!docs/*.psk
 *.log
 Thumbs.db
 .claude/scheduled_tasks.lock
