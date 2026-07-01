@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25">
+  <!-- cable -->
+  <line x1="12.5" y1="2" x2="12.5" y2="7" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
+  <!-- connector body -->
+  <rect x="5.5" y="7" width="14" height="11" rx="1.5" fill="none" stroke="#22C55E" stroke-width="2"/>
+  <!-- pins (8 contacts — RJ45 style, shown as 4 pairs) -->
+  <line x1="8"    y1="7"  x2="8"    y2="12" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="10.5" y1="7"  x2="10.5" y2="12" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="13"   y1="7"  x2="13"   y2="12" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="15.5" y1="7"  x2="15.5" y2="12" stroke="#22C55E" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- locking tab -->
+  <rect x="9.5" y="17" width="6" height="2.5" rx="1" fill="#22C55E"/>
+</svg>

@@ -9,6 +9,7 @@ icons = [
     ('1bar',         'wifi_1bar.png'),
     ('2bar',         'wifi_2bar.png'),
     ('3bar',         'wifi_3bar.png'),
+    ('ethernet',     'ethernet.png'),
 ]
 
 print("WIFI_ICONS = {")
