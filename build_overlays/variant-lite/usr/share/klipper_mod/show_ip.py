@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""Overlay the WiFi status icon and IP address onto the framebuffer once, then exit.
+"""Overlay the network status icon and IP address onto the framebuffer.
+
+Draws once at boot, then stays alive listening for IPv4 address-change
+events via netlink and redraws whenever the IP or active interface changes.
 Only stdlib is used to keep the memory footprint small."""
 
 import base64
+import select
 import socket
 import struct
 import time
@@ -340,25 +344,63 @@ def draw(text, icon_key, fb_w, fb_h, bpp, stride):
             fb.write(bytes(line))
 
 
+# RTMGRP_IPV4_IFADDR: kernel pushes an event whenever an IPv4 address is
+# added (RTM_NEWADDR) or removed (RTM_DELADDR) on any interface.  This
+# covers both IP changes and wifi<->ethernet switches (each transition
+# triggers an address removal on one interface and an addition on the other).
+_RTMGRP_IPV4_IFADDR = 0x10
+
+
+def _network_events():
+    """Block until a burst of IPv4 address-change events has settled, then yield.
+
+    A 2-second drain window coalesces related events (e.g. addr-del on wlan0
+    followed immediately by addr-add on eth0 during an interface switch) so
+    the display is only redrawn once per logical change.
+    """
+    try:
+        nl = socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, socket.NETLINK_ROUTE)
+        nl.bind((0, _RTMGRP_IPV4_IFADDR))
+    except OSError:
+        return  # no netlink support — caller gets no events, one-shot mode
+    try:
+        while True:
+            nl.recv(4096)  # block until the kernel signals a change
+            deadline = time.monotonic() + 2.0
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                if not select.select([nl], [], [], remaining)[0]:
+                    break
+                nl.recv(4096)
+            yield
+    finally:
+        nl.close()
+
+
 def main():
     try:
         fb_w, fb_h, bpp, stride = get_fb_info()
     except OSError:
         return  # no framebuffer device — nothing to do
 
-    ip = get_ip()
+    def update(ip_timeout):
+        ip = get_ip(ip_timeout)
+        if ip:
+            icon_key = get_signal_bars() or 'ethernet'
+            text = ip
+        else:
+            icon_key = 'disconnected'
+            text = "0.0.0.0"
+        try:
+            draw(text, icon_key, fb_w, fb_h, bpp, stride)
+        except OSError:
+            pass
 
-    if ip:
-        icon_key = get_signal_bars() or 'ethernet'
-        text = ip
-    else:
-        icon_key = 'disconnected'
-        text = "0.0.0.0"
-
-    try:
-        draw(text, icon_key, fb_w, fb_h, bpp, stride)
-    except OSError:
-        pass
+    update(30)                    # boot: allow up to 30 s for initial network
+    for _ in _network_events():
+        update(5)                 # event: address already assigned, 5 s is generous
 
 
 if __name__ == '__main__':
