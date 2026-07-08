@@ -24,9 +24,10 @@ GLYPHS = {
     '9': [0x3C,0x66,0x66,0x3E,0x06,0x66,0x3C,0x00],
 }
 
-SCALE       = 3   # 8x8 → 24x24 px per char for IP line
-SCALE_SMALL = 2   # 8x8 → 16x16 px per char for port line
-ICON_SIZE   = 24  # WiFi icon rendered at 24x24 to match IP character height
+SCALE         = 3   # 8x8 → 24x24 px per char for IP line
+SCALE_SMALL   = 2   # 8x8 → 16x16 px per char for port line
+ICON_SIZE     = 24  # WiFi icon rendered at 24x24 to match IP character height
+CORNER_MARGIN = 8   # pixels from screen edge for upper-right placement
 FG     = (255, 255, 255)
 FG_DIM = (140, 140, 140)  # secondary colour for port line
 BG     = (0, 0, 0)
@@ -269,34 +270,37 @@ def encode_pixel(r, g, b, bpp):
 def draw(text, icon_key, fb_w, fb_h, bpp, stride):
     ppb = bpp // 8
 
-    # Main line: WiFi icon + IP address
+    # Main line: WiFi icon + IP address (upper right corner)
     cw   = 8 * SCALE
     ch   = 8 * SCALE
     gap_w  = cw // 2
     text_w = len(text) * cw
     total_w = ICON_SIZE + gap_w + text_w
-    x0 = max(0, (fb_w - total_w) // 2)
-    y0 = fb_h - ch - 12
+    x0 = max(0, fb_w - total_w - CORNER_MARGIN)
+    y0 = CORNER_MARGIN
 
-    # Secondary line: port numbers, smaller and dimmer, just above the main line
+    # Secondary line: port numbers, smaller and dimmer, below the main line
     cw_s = 8 * SCALE_SMALL
     ch_s = 8 * SCALE_SMALL
     port_text = " ".join(f":{p}" for p in PORTS)
-    x0_port = max(0, (fb_w - len(port_text) * cw_s) // 2)
-    y0_port = y0 - ch_s - 4
+    x0_port = max(0, fb_w - len(port_text) * cw_s - CORNER_MARGIN)
+    y0_port = y0 + ch + 4
 
     fg_px  = encode_pixel(*FG, bpp)
     dim_px = encode_pixel(*FG_DIM, bpp)
     bg_px  = encode_pixel(*BG, bpp)
-    blank_row = bg_px * fb_w
+
+    # Clear only the indicator rectangle (not full rows — screen content fills the display)
+    clear_x0 = min(x0, x0_port)
+    clear_y1 = y0_port + ch_s + 2
+    blank_strip = bg_px * (fb_w - clear_x0)
 
     with open('/dev/fb0', 'r+b') as fb:
-        # Clear the strip (extended upward to cover port line)
-        for row in range(y0_port - 9, fb_h):
-            fb.seek(row * stride)
-            fb.write(blank_row)
+        for row in range(y0, clear_y1 + 1):
+            fb.seek(row * stride + clear_x0 * ppb)
+            fb.write(blank_strip)
 
-        # Port numbers in dim colour
+        # Port numbers in dim colour (below main line)
         for row in range(ch_s):
             glyph_row = row // SCALE_SMALL
             line = bytearray()
