@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 try:
-    from PIL import Image, ImageDraw
+    from PIL import Image
 except ImportError:
     sys.exit("Pillow not found -- run: pip install Pillow")
 
@@ -41,72 +41,55 @@ _GLYPHS = {
     '8': [0x3C, 0x66, 0x66, 0x3C, 0x66, 0x66, 0x3C, 0x00],
     '9': [0x3C, 0x66, 0x66, 0x3E, 0x06, 0x66, 0x3C, 0x00],
 }
-_SCALE       = 3    # matches show_ip.py SCALE
-_SCALE_SMALL = 2    # matches show_ip.py SCALE_SMALL
-_ICON_SIZE   = 25   # matches show_ip.py ICON_SIZE
+_SCALE       = 3                  # matches show_ip.py SCALE
+_ICON_SIZE   = 25                 # matches show_ip.py ICON_SIZE
 _PLACEHOLDER = "0.0.0.0"
-_PORTS       = [4000, 4001, 7125]           # Mainsail, Fluidd, Moonraker
-_FG     = (72, 72, 72, 255)                 # dim gray for placeholder IP text
-_FG_DIM = (45, 45, 45, 255)                 # dimmer gray for placeholder ports
+_FG          = (72, 72, 72, 255)  # dim gray for placeholder IP text
 
 
-_CORNER_MARGIN = 8  # pixels from screen edge — mirrors show_ip.py CORNER_MARGIN
+_CORNER_MARGIN = 8   # pixels from screen edge — mirrors show_ip.py CORNER_MARGIN
+_ICON_GAP      = 4   # gap between the two corner icons — mirrors show_ip.py ICON_GAP
+
+
+def _dim_icon(path):
+    """Load a PNG icon, dim it to 30%, return RGBA Image."""
+    icon = Image.open(path).convert("RGBA")
+    if icon.size != (_ICON_SIZE, _ICON_SIZE):
+        icon = icon.resize((_ICON_SIZE, _ICON_SIZE), Image.LANCZOS)
+    r, g, b, a = icon.split()
+    r = r.point(lambda v: v * 30 // 100)
+    g = g.point(lambda v: v * 30 // 100)
+    b = b.point(lambda v: v * 30 // 100)
+    return Image.merge("RGBA", (r, g, b, a))
 
 
 def _draw_ip_placeholder(img: Image.Image) -> None:
-    """Burn placeholders matching show_ip.py's split layout:
-    disconnected icon (upper right) + '0.0.0.0' + port line (bottom centre)."""
-    w = img.width
-    cw   = 8 * _SCALE
-    ch   = 8 * _SCALE
-    cw_s = 8 * _SCALE_SMALL
-    ch_s = 8 * _SCALE_SMALL
+    """Burn placeholders matching show_ip.py's layout:
+    WiFi-disconnected + Ethernet-disconnected icons (upper right, side by side)
+    and '0.0.0.0' text (bottom centre)."""
+    w  = img.width
+    cw = 8 * _SCALE
+    ch = 8 * _SCALE
 
-    # Network icon position — upper right corner (mirrors show_ip.py)
-    x0_icon = w - _ICON_SIZE - _CORNER_MARGIN
-    y0_icon = _CORNER_MARGIN
+    # Two icons — upper right, WiFi left / Ethernet right (mirrors show_ip.py)
+    x0_eth  = w - _ICON_SIZE - _CORNER_MARGIN
+    x0_wifi = x0_eth - _ICON_GAP - _ICON_SIZE
+    y0_icons = _CORNER_MARGIN
 
-    # IP text position — bottom centre (mirrors show_ip.py)
+    # IP text — bottom centre (mirrors show_ip.py)
     x0_ip = max(0, (w - len(_PLACEHOLDER) * cw) // 2)
     y0_ip = PHYS_H - ch - 12
 
-    # Port line — above IP, bottom centre (mirrors show_ip.py)
-    port_text = " ".join(f":{p}" for p in _PORTS)
-    x0_port = max(0, (w - len(port_text) * cw_s) // 2)
-    y0_port = y0_ip - ch_s - 4
-
-    draw = ImageDraw.Draw(img)
-    # Separator above the port line
-    draw.line([(40, y0_port - 8), (w - 40, y0_port - 8)], fill=(55, 55, 55, 255), width=1)
-
-    # WiFi disconnected icon, dimmed to 30%, in upper right
-    icon_path = here / "wifi_disconnected.png"
-    if icon_path.exists():
-        icon = Image.open(icon_path).convert("RGBA")
-        if icon.size != (_ICON_SIZE, _ICON_SIZE):
-            icon = icon.resize((_ICON_SIZE, _ICON_SIZE), Image.LANCZOS)
-        r, g, b, a = icon.split()
-        r = r.point(lambda v: v * 30 // 100)
-        g = g.point(lambda v: v * 30 // 100)
-        b = b.point(lambda v: v * 30 // 100)
-        icon = Image.merge("RGBA", (r, g, b, a))
-        img.paste(icon, (x0_icon, y0_icon), mask=icon.split()[3])
-
-    # Port numbers placeholder (bottom centre)
-    px = img.load()
-    for row in range(ch_s):
-        glyph_row = row // _SCALE_SMALL
-        for ci, char in enumerate(port_text):
-            bits = _GLYPHS.get(char, _GLYPHS[' '])[glyph_row]
-            for col in range(8):
-                if (bits >> (7 - col)) & 1:
-                    for sx in range(_SCALE_SMALL):
-                        px_x = x0_port + ci * cw_s + col * _SCALE_SMALL + sx
-                        px_y = y0_port + row
-                        if 0 <= px_x < w and 0 <= px_y < PHYS_H:
-                            px[px_x, px_y] = _FG_DIM
+    # Dimmed disconnected icons
+    wifi_path = here / "wifi_disconnected.png"
+    eth_path  = here / "ethernet_disconnected.png"
+    if wifi_path.exists():
+        img.paste(_dim_icon(wifi_path), (x0_wifi, y0_icons), mask=_dim_icon(wifi_path).split()[3])
+    if eth_path.exists():
+        img.paste(_dim_icon(eth_path),  (x0_eth,  y0_icons), mask=_dim_icon(eth_path).split()[3])
 
     # IP address placeholder text (bottom centre)
+    px = img.load()
     for row in range(ch):
         glyph_row = row // _SCALE
         for ci, char in enumerate(_PLACEHOLDER):

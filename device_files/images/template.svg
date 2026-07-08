@@ -180,7 +180,13 @@
        height="127"
        x="0"
        y="0" /><rect
-       id="icon_network_placeholder"
+       id="icon_wifi_placeholder"
+       x="195.26"
+       y="2.117"
+       width="6.614"
+       height="6.614"
+       style="display:inline;fill:#444444;fill-opacity:1" /><rect
+       id="icon_eth_placeholder"
        x="202.93"
        y="2.117"
        width="6.614"
