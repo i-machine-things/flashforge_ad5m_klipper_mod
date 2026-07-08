@@ -54,25 +54,32 @@ _CORNER_MARGIN = 8  # pixels from screen edge — mirrors show_ip.py CORNER_MARG
 
 
 def _draw_ip_placeholder(img: Image.Image) -> None:
-    """Burn a dim disconnected-icon + '0.0.0.0' + port line at show_ip.py's render position."""
+    """Burn placeholders matching show_ip.py's split layout:
+    disconnected icon (upper right) + '0.0.0.0' + port line (bottom centre)."""
     w = img.width
     cw   = 8 * _SCALE
     ch   = 8 * _SCALE
     cw_s = 8 * _SCALE_SMALL
     ch_s = 8 * _SCALE_SMALL
 
-    # Main line position — upper right corner (mirrors show_ip.py)
-    gap_w  = cw // 2
-    total_w = _ICON_SIZE + gap_w + len(_PLACEHOLDER) * cw
-    x0 = max(0, w - total_w - _CORNER_MARGIN)
-    y0 = _CORNER_MARGIN
+    # Network icon position — upper right corner (mirrors show_ip.py)
+    x0_icon = w - _ICON_SIZE - _CORNER_MARGIN
+    y0_icon = _CORNER_MARGIN
 
-    # Port line position — below the main line (mirrors show_ip.py)
+    # IP text position — bottom centre (mirrors show_ip.py)
+    x0_ip = max(0, (w - len(_PLACEHOLDER) * cw) // 2)
+    y0_ip = PHYS_H - ch - 12
+
+    # Port line — above IP, bottom centre (mirrors show_ip.py)
     port_text = " ".join(f":{p}" for p in _PORTS)
-    x0_port = max(0, w - len(port_text) * cw_s - _CORNER_MARGIN)
-    y0_port = y0 + ch + 4
+    x0_port = max(0, (w - len(port_text) * cw_s) // 2)
+    y0_port = y0_ip - ch_s - 4
 
-    # WiFi disconnected icon, dimmed to 30%
+    draw = ImageDraw.Draw(img)
+    # Separator above the port line
+    draw.line([(40, y0_port - 8), (w - 40, y0_port - 8)], fill=(55, 55, 55, 255), width=1)
+
+    # WiFi disconnected icon, dimmed to 30%, in upper right
     icon_path = here / "wifi_disconnected.png"
     if icon_path.exists():
         icon = Image.open(icon_path).convert("RGBA")
@@ -83,9 +90,9 @@ def _draw_ip_placeholder(img: Image.Image) -> None:
         g = g.point(lambda v: v * 30 // 100)
         b = b.point(lambda v: v * 30 // 100)
         icon = Image.merge("RGBA", (r, g, b, a))
-        img.paste(icon, (x0, y0), mask=icon.split()[3])
+        img.paste(icon, (x0_icon, y0_icon), mask=icon.split()[3])
 
-    # Port numbers placeholder
+    # Port numbers placeholder (bottom centre)
     px = img.load()
     for row in range(ch_s):
         glyph_row = row // _SCALE_SMALL
@@ -99,8 +106,7 @@ def _draw_ip_placeholder(img: Image.Image) -> None:
                         if 0 <= px_x < w and 0 <= px_y < PHYS_H:
                             px[px_x, px_y] = _FG_DIM
 
-    # IP address placeholder text
-    text_x0 = x0 + _ICON_SIZE + gap_w
+    # IP address placeholder text (bottom centre)
     for row in range(ch):
         glyph_row = row // _SCALE
         for ci, char in enumerate(_PLACEHOLDER):
@@ -108,8 +114,8 @@ def _draw_ip_placeholder(img: Image.Image) -> None:
             for col in range(8):
                 if (bits >> (7 - col)) & 1:
                     for sx in range(_SCALE):
-                        px_x = text_x0 + ci * cw + col * _SCALE + sx
-                        px_y = y0 + row
+                        px_x = x0_ip + ci * cw + col * _SCALE + sx
+                        px_y = y0_ip + row
                         if 0 <= px_x < w and 0 <= px_y < PHYS_H:
                             px[px_x, px_y] = _FG
 

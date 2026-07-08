@@ -270,37 +270,41 @@ def encode_pixel(r, g, b, bpp):
 def draw(text, icon_key, fb_w, fb_h, bpp, stride):
     ppb = bpp // 8
 
-    # Main line: WiFi icon + IP address (upper right corner)
-    cw   = 8 * SCALE
-    ch   = 8 * SCALE
-    gap_w  = cw // 2
-    text_w = len(text) * cw
-    total_w = ICON_SIZE + gap_w + text_w
-    x0 = max(0, fb_w - total_w - CORNER_MARGIN)
-    y0 = CORNER_MARGIN
+    # Network status icon — upper right corner
+    x0_icon = fb_w - ICON_SIZE - CORNER_MARGIN
+    y0_icon = CORNER_MARGIN
 
-    # Secondary line: port numbers, smaller and dimmer, below the main line
+    # IP address text — bottom centre
+    cw = 8 * SCALE
+    ch = 8 * SCALE
+    x0_ip = max(0, (fb_w - len(text) * cw) // 2)
+    y0_ip = fb_h - ch - 12
+
+    # Port numbers — above IP, bottom centre
     cw_s = 8 * SCALE_SMALL
     ch_s = 8 * SCALE_SMALL
     port_text = " ".join(f":{p}" for p in PORTS)
-    x0_port = max(0, fb_w - len(port_text) * cw_s - CORNER_MARGIN)
-    y0_port = y0 + ch + 4
+    x0_port = max(0, (fb_w - len(port_text) * cw_s) // 2)
+    y0_port = y0_ip - ch_s - 4
 
     fg_px  = encode_pixel(*FG, bpp)
     dim_px = encode_pixel(*FG_DIM, bpp)
     bg_px  = encode_pixel(*BG, bpp)
 
-    # Clear only the indicator rectangle (not full rows — screen content fills the display)
-    clear_x0 = min(x0, x0_port)
-    clear_y1 = y0_port + ch_s + 2
-    blank_strip = bg_px * (fb_w - clear_x0)
-
     with open('/dev/fb0', 'r+b') as fb:
-        for row in range(y0, clear_y1 + 1):
-            fb.seek(row * stride + clear_x0 * ppb)
-            fb.write(blank_strip)
+        # Clear icon region (upper right — just the 24x24 block)
+        blank_icon = bg_px * ICON_SIZE
+        for row in range(y0_icon, y0_icon + ICON_SIZE):
+            fb.seek(row * stride + x0_icon * ppb)
+            fb.write(blank_icon)
 
-        # Port numbers in dim colour (below main line)
+        # Clear bottom IP strip (full rows — content is above this area)
+        blank_row = bg_px * fb_w
+        for row in range(y0_port - 9, fb_h):
+            fb.seek(row * stride)
+            fb.write(blank_row)
+
+        # Port numbers in dim colour (above IP)
         for row in range(ch_s):
             glyph_row = row // SCALE_SMALL
             line = bytearray()
@@ -315,7 +319,7 @@ def draw(text, icon_key, fb_w, fb_h, bpp, stride):
         # WiFi status icon (pre-rasterized 24x24 RGB, composited over black)
         icon_rgb = base64.b64decode(WIFI_ICONS[icon_key])
         for row in range(ICON_SIZE):
-            fb.seek((y0 + row) * stride + x0 * ppb)
+            fb.seek((y0_icon + row) * stride + x0_icon * ppb)
             line = bytearray()
             for col in range(ICON_SIZE):
                 idx = (row * ICON_SIZE + col) * 3
@@ -323,8 +327,7 @@ def draw(text, icon_key, fb_w, fb_h, bpp, stride):
                 line += encode_pixel(r, g, b, bpp)
             fb.write(bytes(line))
 
-        # IP address text to the right of the icon
-        text_x0 = x0 + ICON_SIZE + gap_w
+        # IP address text (centred, bottom)
         for row in range(ch):
             glyph_row = row // SCALE
             line = bytearray()
@@ -333,7 +336,7 @@ def draw(text, icon_key, fb_w, fb_h, bpp, stride):
                 for col in range(8):
                     px = fg_px if (bits >> (7 - col)) & 1 else bg_px
                     line += px * SCALE
-            fb.seek((y0 + row) * stride + text_x0 * ppb)
+            fb.seek((y0_ip + row) * stride + x0_ip * ppb)
             fb.write(bytes(line))
 
 
