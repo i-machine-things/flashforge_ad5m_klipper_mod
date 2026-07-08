@@ -1,0 +1,15 @@
+<!-- Ethernet disconnected icon — greyed-out wired icon with red X.
+     Matches the visual theme of wifi_disconnected.svg.
+     viewBox keeps original 22-unit path data; width/height scale to 25px.
+     Red X coordinates are wifi_disconnected values × (22/25). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 22 22">
+  <path fill="#888888"
+    d="m 3,3 0,6 2,0 0,8 1,0 0,-8 2,0 0,-6 z
+       m 6,0 0,1 9,0 0,10 -11,0 0,1 0,1 1,0 1,0 0,1 0,1 -2,0 0,1 2,0 1,0 2,0 3,0 0,-1 -1,0 -1,0 0,-2 1,0 4,0 1,0 0,-13 -1,0 z
+       m -5,1 3,0 0,4 -3,0 z
+       m 1,1 0,2 1,0 0,-2 z
+       m -2,5 0,6 1,0 0,-6 z"/>
+  <!-- red X -->
+  <line x1="4.4" y1="7.92" x2="17.6" y2="20.24" stroke="#EF4444" stroke-width="2.2" stroke-linecap="round"/>
+  <line x1="17.6" y1="7.92" x2="4.4" y2="20.24" stroke="#EF4444" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

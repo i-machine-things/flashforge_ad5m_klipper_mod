@@ -43,7 +43,7 @@ _GLYPHS = {
 }
 _SCALE       = 3    # matches show_ip.py SCALE
 _SCALE_SMALL = 2    # matches show_ip.py SCALE_SMALL
-_ICON_SIZE   = 24   # matches show_ip.py ICON_SIZE
+_ICON_SIZE   = 25   # matches show_ip.py ICON_SIZE
 _PLACEHOLDER = "0.0.0.0"
 _PORTS       = [4000, 4001, 7125]           # Mainsail, Fluidd, Moonraker
 _FG     = (72, 72, 72, 255)                 # dim gray for placeholder IP text
@@ -141,8 +141,9 @@ here = Path(__file__).parent
 fb_dir = here / "fb"
 
 if __name__ == "__main__":
-    # Exclude wifi_*.png — those are icon assets used by this script, not screen images
-    pngs = sorted(p for p in here.glob("*.png") if not p.name.startswith("wifi_"))
+    # Exclude icon assets (wifi_*.png, ethernet*.png) — used by show_ip.py, not screen images
+    _ICON_PREFIXES = ("wifi_", "ethernet")
+    pngs = sorted(p for p in here.glob("*.png") if not p.name.startswith(_ICON_PREFIXES))
     if not pngs:
         sys.exit("No PNG files found in " + str(here))
 
