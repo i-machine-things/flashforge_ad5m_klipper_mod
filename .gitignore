@@ -1,5 +1,7 @@
 build_output/*
 device_files/images/fb
+device_files/images/preview_*.png
+device_files/images/_preview.py
 *.md.backup
 *.psk
 !docs/*.psk
