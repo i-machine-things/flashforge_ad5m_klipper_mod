@@ -10,8 +10,8 @@ start() {
     backlight 0%
     backlight 50%
     xzcat /usr/share/klipper_mod/fb/mod_start.img.xz > /dev/fb0
-    # Overlay the IP address once networking is up; process exits after writing
-    python3 /usr/share/klipper_mod/show_ip.py &
+    # Overlay network status icons and IP address; stays alive for live updates
+    /usr/share/klipper_mod/show_ip &
 }
 
 case "$1" in

@@ -1,3 +1,4 @@
+source "$BR2_EXTERNAL_AD5M_PATH/package/show-ip/Config.in"
 source "$BR2_EXTERNAL_AD5M_PATH/package/python-ff-ad5m-audio/Config.in"
 source "$BR2_EXTERNAL_AD5M_PATH/package/python-ff-ad5m-backlight/Config.in"
 source "$BR2_EXTERNAL_AD5M_PATH/package/klippain-shaketune/Config.in"
