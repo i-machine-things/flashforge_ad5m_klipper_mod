@@ -1,28 +1,67 @@
 #!/usr/bin/env python3
-"""Export each SVG layer as a PNG, then run convert.py to build framebuffer images.
+"""Build tool for AD5M framebuffer images.
 
-Usage:
-    python export_layers.py              # export all layers + convert to .img.xz
-    python export_layers.py --no-convert # export PNGs only, skip convert step
+Commands
+--------
+(none)   Export SVG layers -> PNG, then convert to .img.xz  [default]
+export   Export SVG layers -> PNG only
+convert  Convert existing PNGs -> .img.xz  (no Inkscape needed)
+preview  Render show_ip preview PNGs
 
-Requires:
-  - Inkscape 1.x at C:\\Program Files\\Inkscape\\bin\\inkscape.exe
-  - Pillow (pip install Pillow) -- only needed for the convert step
+Requirements
+------------
+  Inkscape 1.x at C:\\Program Files\\Inkscape\\bin\\inkscape.exe  (export / default)
+  Pillow: pip install Pillow                                       (convert / preview)
 """
 
+import argparse
+import lzma
 import re
 import subprocess
 import sys
-import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-INKSCAPE = Path(r"C:\Program Files\Inkscape\bin\inkscape.exe")
+try:
+    from PIL import Image
+except ImportError:
+    sys.exit("Pillow not found — run: pip install Pillow")
+
 HERE     = Path(__file__).parent
 SVG      = HERE / "template.svg"
+FB_DIR   = HERE / "fb"
+INKSCAPE = Path(r"C:\Program Files\Inkscape\bin\inkscape.exe")
 
-# Maps each SVG layer label to its output PNG filename.
-# Layers not listed here are ignored (e.g. Background, Logos, WiFi icons).
+# Framebuffer geometry
+FB_W, FB_H = 800, 960   # virtual (double-buffered)
+PHYS_H     = 480        # physical display height
+
+# Icon / text layout — must mirror show_ip.py
+ICON_SIZE     = 25
+ICON_GAP      = 4
+CORNER_MARGIN = 8
+SCALE         = 3
+
+# 8×8 bitmap font shared with show_ip.py
+GLYPHS = {
+    ' ': [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+    '.': [0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x18, 0x00],
+    ':': [0x00, 0x18, 0x18, 0x00, 0x18, 0x18, 0x00, 0x00],
+    '0': [0x3C, 0x66, 0x6E, 0x76, 0x66, 0x66, 0x3C, 0x00],
+    '1': [0x18, 0x38, 0x18, 0x18, 0x18, 0x18, 0x3C, 0x00],
+    '2': [0x3C, 0x66, 0x06, 0x0C, 0x18, 0x30, 0x7E, 0x00],
+    '3': [0x3C, 0x66, 0x06, 0x1C, 0x06, 0x66, 0x3C, 0x00],
+    '4': [0x0C, 0x1C, 0x3C, 0x6C, 0x7E, 0x0C, 0x0C, 0x00],
+    '5': [0x7E, 0x60, 0x7C, 0x06, 0x06, 0x66, 0x3C, 0x00],
+    '6': [0x3C, 0x66, 0x60, 0x7C, 0x66, 0x66, 0x3C, 0x00],
+    '7': [0x7E, 0x06, 0x0C, 0x18, 0x30, 0x30, 0x30, 0x00],
+    '8': [0x3C, 0x66, 0x66, 0x3C, 0x66, 0x66, 0x3C, 0x00],
+    '9': [0x3C, 0x66, 0x66, 0x3E, 0x06, 0x66, 0x3C, 0x00],
+}
+
+
+# ── SVG -> PNG ─────────────────────────────────────────────────────────────────
+
 LAYER_MAP = {
     "install_start":          "install_start.png",
     "install_ok":             "install_ok.png",
@@ -39,81 +78,178 @@ LAYER_MAP = {
     "mcu_update_stock":       "mcu_update_stock.png",
 }
 
-# These layers stay visible in every export (shared background/logos).
 ALWAYS_VISIBLE = {"Background", "Logos"}
+_INK_NS = "http://www.inkscape.org/namespaces/inkscape"
 
-INK_NS = "http://www.inkscape.org/namespaces/inkscape"
 
-
-def _register_namespaces(svg_text: str) -> None:
-    """Register every xmlns: declaration so ElementTree preserves prefixes."""
+def _register_ns(svg_text: str) -> None:
     for prefix, uri in re.findall(r'xmlns(?::(\w+))?="([^"]+)"', svg_text):
         ET.register_namespace(prefix or "", uri)
 
 
 def _set_display(style: str, visible: bool) -> str:
-    """Replace or insert a display:inline/none declaration in a CSS style string."""
     value = "inline" if visible else "none"
     if re.search(r"display\s*:", style):
         return re.sub(r"display\s*:[^;]*", f"display:{value}", style)
     return f"display:{value};{style}" if style else f"display:{value}"
 
 
-def export_layer(layer_label: str, out_png: Path) -> None:
-    """Write a temp SVG showing only the target layer, export it via Inkscape."""
+def _export_layer(label: str, out_png: Path) -> None:
     svg_text = SVG.read_text(encoding="utf-8")
-    _register_namespaces(svg_text)
+    _register_ns(svg_text)
     tree = ET.parse(SVG)
-    root = tree.getroot()
-
-    for g in root:
-        if g.get(f"{{{INK_NS}}}groupmode") != "layer":
+    for g in tree.getroot():
+        if g.get(f"{{{_INK_NS}}}groupmode") != "layer":
             continue
-        label   = g.get(f"{{{INK_NS}}}label", "")
-        visible = label in ALWAYS_VISIBLE or label == layer_label
-        g.set("style", _set_display(g.get("style", ""), visible))
+        lbl = g.get(f"{{{_INK_NS}}}label", "")
+        g.set("style", _set_display(g.get("style", ""), lbl in ALWAYS_VISIBLE or lbl == label))
 
-    tmp_path = HERE / f"_tmp_{layer_label}.svg"
+    tmp = HERE / f"_tmp_{label}.svg"
     try:
-        tree.write(tmp_path, encoding="utf-8", xml_declaration=True)
-        result = subprocess.run(
-            [
-                str(INKSCAPE),
-                "--export-type=png",
-                f"--export-filename={out_png}",
-                "--export-area-page",
-                str(tmp_path),
-            ],
-            capture_output=True,
-            text=True,
+        tree.write(tmp, encoding="utf-8", xml_declaration=True)
+        r = subprocess.run(
+            [str(INKSCAPE), "--export-type=png", f"--export-filename={out_png}",
+             "--export-area-page", str(tmp)],
+            capture_output=True, text=True,
         )
-        if result.returncode != 0:
-            print(f"  [warn] Inkscape stderr for {layer_label}:\n{result.stderr.strip()}")
-            result.check_returncode()
-        print(f"  {layer_label:30s} -> {out_png.name}")
+        if r.returncode != 0:
+            print(f"  [warn] {label}:\n{r.stderr.strip()}")
+            r.check_returncode()
+        print(f"  {label:30s} -> {out_png.name}")
     finally:
-        tmp_path.unlink(missing_ok=True)
+        tmp.unlink(missing_ok=True)
 
 
-def main() -> None:
-    no_convert = "--no-convert" in sys.argv
-
+def cmd_export() -> None:
     if not INKSCAPE.exists():
         sys.exit(f"Inkscape not found at {INKSCAPE}")
     if not SVG.exists():
         sys.exit(f"SVG not found: {SVG}")
-
     print(f"Exporting {len(LAYER_MAP)} layers from {SVG.name} ...")
     for label, png_name in LAYER_MAP.items():
-        export_layer(label, HERE / png_name)
+        _export_layer(label, HERE / png_name)
 
-    if no_convert:
-        print("\nDone (skipped convert step).")
-        return
 
-    print("\nRunning convert.py ...")
-    subprocess.run([sys.executable, str(HERE / "convert.py")], check=True)
-    print("Done.")
+# ── PNG -> .img.xz ─────────────────────────────────────────────────────────────
+
+# Skip runtime icon assets and dev preview PNGs
+_SKIP_PREFIXES = ("wifi_", "ethernet", "preview_")
+
+
+def _png_to_fb_xz(src: Path) -> None:
+    img = Image.open(src).convert("RGBA")
+    canvas = Image.new("RGBA", (FB_W, FB_H), (0, 0, 0, 0))
+    canvas.paste(img, (0, 0))
+    r, g, b, a = canvas.split()
+    bgra = Image.merge("RGBA", (b, g, r, a))
+    dst = FB_DIR / (src.stem + ".img.xz")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    with lzma.open(dst, "wb") as f:
+        f.write(bgra.tobytes())
+    print(f"  {src.name} -> {dst.name}  ({dst.stat().st_size // 1024} KB)")
+
+
+def cmd_convert() -> None:
+    pngs = sorted(p for p in HERE.glob("*.png") if not p.name.startswith(_SKIP_PREFIXES))
+    if not pngs:
+        sys.exit("No PNG files found in " + str(HERE))
+    print(f"Converting {len(pngs)} PNG(s) -> {FB_DIR}/")
+    for png in pngs:
+        _png_to_fb_xz(png)
+
+
+# ── Preview renderer ───────────────────────────────────────────────────────────
+
+_WHITE = (255, 255, 255, 255)
+_BLACK = (0, 0, 0, 255)
+
+_PREVIEWS = [
+    ("192.168.1.100", "wifi_3bar",        "ethernet",              "preview_both_connected.png"),
+    ("192.168.1.101", "wifi_disconnected", "ethernet",              "preview_eth_only.png"),
+    ("192.168.1.102", "wifi_2bar",         "ethernet_disconnected", "preview_wifi_only.png"),
+    ("0.0.0.0",       "wifi_disconnected", "ethernet_disconnected", "preview_disconnected.png"),
+]
+
+
+def _draw_text(px, text: str, x0: int, y0: int, fg, clip_h: int) -> None:
+    cw, ch = 8 * SCALE, 8 * SCALE
+    for row in range(ch):
+        g_row = row // SCALE
+        for ci, char in enumerate(text):
+            bits = GLYPHS.get(char, GLYPHS[' '])[g_row]
+            for col in range(8):
+                if (bits >> (7 - col)) & 1:
+                    for sx in range(SCALE):
+                        x = x0 + ci * cw + col * SCALE + sx
+                        y = y0 + row
+                        if y < clip_h:
+                            px[x, y] = fg
+
+
+def _paste_icon(img: Image.Image, name: str, x0: int, y0: int) -> None:
+    src = Image.open(HERE / f"{name}.png").convert("RGBA")
+    bg = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), _BLACK)
+    bg.paste(src, mask=src.split()[3])
+    img.paste(bg, (x0, y0))
+
+
+def _render_preview(ip: str, wifi: str, eth: str, out: str) -> None:
+    img = Image.open(HERE / "mod_start.png").convert("RGBA")
+    W, H = img.size
+    px = img.load()
+
+    x0_eth  = W - ICON_SIZE - CORNER_MARGIN
+    x0_wifi = x0_eth - ICON_GAP - ICON_SIZE
+    y0_icons = CORNER_MARGIN
+
+    for y in range(y0_icons, y0_icons + ICON_SIZE):
+        for x in range(x0_wifi, x0_wifi + ICON_SIZE * 2 + ICON_GAP):
+            px[x, y] = _BLACK
+    _paste_icon(img, wifi, x0_wifi, y0_icons)
+    _paste_icon(img, eth,  x0_eth,  y0_icons)
+
+    cw, ch = 8 * SCALE, 8 * SCALE
+    x0_ip = max(0, (W - len(ip) * cw) // 2)
+    y0_ip = H - ch - 12
+    px = img.load()
+    for y in range(y0_ip - 9, H):
+        for x in range(W):
+            px[x, y] = _BLACK
+    _draw_text(px, ip, x0_ip, y0_ip, _WHITE, H)
+
+    img.save(HERE / out)
+    print(f"  {out}  ({W}x{H})")
+
+
+def cmd_preview() -> None:
+    if not (HERE / "mod_start.png").exists():
+        sys.exit("mod_start.png not found — run export first")
+    print("Rendering previews ...")
+    for args in _PREVIEWS:
+        _render_preview(*args)
+
+
+# ── Entry point ────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    ap.add_argument(
+        "command", nargs="?", choices=["export", "convert", "preview"],
+        help="default (no arg): export + convert",
+    )
+    cmd = ap.parse_args().command
+    if cmd == "export":
+        cmd_export()
+    elif cmd == "convert":
+        cmd_convert()
+    elif cmd == "preview":
+        cmd_preview()
+    else:
+        cmd_export()
+        print()
+        cmd_convert()
 
 
 if __name__ == "__main__":
