@@ -18,8 +18,8 @@ Format:
 
 ## 2026-06-16 — PR #38 `show_ip.py`, `build-lite.yml`, `install_steps.sh` (CR review: lite IP display + CI)
 
-**Review:** CodeRabbit flagged 5 actionable issues and 4 nitpicks across 3 files.
-**Result:** All actionable issues fixed; nitpicks addressed or logged.
+**Review:** CodeRabbit flagged 9 findings across 3 files.
+**Result:** 8 fixed (findings 1–8); 1 nitpick logged and skipped (finding 9 — SHA pinning not worthwhile for OSS).
 
 ### Findings
 
@@ -78,6 +78,33 @@ Format:
    - The commit-message format example fence has no language identifier, causing markdownlint to warn. Should be ` ```text `.
    - Blocked: self-modification policy prevents editing `.claude/CLAUDE.md` without explicit user authorization.
 
-4. **Outdated CI statement** (`.claude/CLAUDE.md` line 99) — *logged, requires user action*
-   - "This project has no automated CI build pipeline" is now false; PR #38 added `build-lite.yml`.
-   - Blocked: same self-modification policy. Suggested replacement: "Releases are cut as git tags only. The CI pipeline (`build-lite.yml`) builds and publishes artifacts for each PR and push to `master`, but does **not** auto-publish releases."
+4. **Outdated CI statement** (`.claude/CLAUDE.md` line 99) — *fixed by user*
+   - "This project has no automated CI build pipeline" was false; PR #38 added `build-lite.yml`.
+   - Fixed by user after self-modification policy blocked the automated edit.
+
+## 2026-07-10 — PR #38 `show_ip.c`, `gen_wifi_data.py` (CR review: C binary safety + assertion)
+
+**Review:** CodeRabbit flagged 4 actionable issues and 1 S&P housekeeping note.
+**Result:** All 5 fixed.
+
+### Findings
+
+1. **`fscanf` return values unchecked in `fb_init`** (`show_ip.c` lines 77-88)
+   - Both `fscanf` calls (virtual_size and bits_per_pixel) discarded their return values. A parse failure would leave `fb_w`/`fb_h`/`fb_bpp` uninitialised, causing silent garbage output or a divide-by-zero in `fb_stride`.
+   - Fixed: wrapped each call — `if (fscanf(...) != N) { fclose(f); return -1; }`.
+
+2. **Stack buffer overflow in `draw_text`** (`show_ip.c` lines 135-166)
+   - `line[15 * 8 * SCALE * 4]` holds exactly 15 chars, but `len = strlen(text)` was used unclamped. A string longer than 15 would overflow.
+   - Fixed: `if (len > 15) len = 15;` immediately after the `strlen` call.
+
+3. **Stack buffer overflow in `fill_row`** (`show_ip.c` lines 107-117)
+   - `buf[800 * 4]` assumes `n ≤ 800`, but callers pass `fb_w` which could exceed 800 on a wider display. No bounds check existed.
+   - Fixed: `if (n > 800) n = 800;` after declaring the buffer.
+
+4. **`assert` disabled by `-O` in `gen_wifi_data.py`** (`gen_wifi_data.py` lines 35-40)
+   - `assert img.size == (SIZE, SIZE)` is silently skipped when Python is run with optimisation flags, letting a wrong-size PNG produce corrupt icon data with no error.
+   - Fixed: replaced with `if img.size != (SIZE, SIZE): raise ValueError(...)`.
+
+5. **S&P finding-count summary incorrect** (`.claude/S&P.md` lines 21-22)
+   - Entry claimed "5 actionable issues and 4 nitpicks" but listed 9 findings without distinguishing fixed/skipped status.
+   - Fixed: updated summary to "9 findings: 8 fixed, 1 skipped (SHA pinning)".

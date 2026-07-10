@@ -34,7 +34,8 @@ SIZE = 25
 
 def load_icon(fname: str) -> bytes:
     img = Image.open(HERE / fname).convert("RGBA")
-    assert img.size == (SIZE, SIZE), f"unexpected size {img.size} for {fname}"
+    if img.size != (SIZE, SIZE):
+        raise ValueError(f"unexpected size {img.size} for {fname}")
     bg = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255))
     bg.paste(img, mask=img.split()[3])
     return bg.convert("RGB").tobytes()

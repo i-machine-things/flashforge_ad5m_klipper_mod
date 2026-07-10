@@ -76,13 +76,13 @@ static int fb_init(void)
     /* Fallback: virtual_size (may be 2× physical on page-flip drivers). */
     f = fopen("/sys/class/graphics/fb0/virtual_size", "r");
     if (!f) return -1;
-    fscanf(f, "%d,%d", &fb_w, &fb_h);
+    if (fscanf(f, "%d,%d", &fb_w, &fb_h) != 2) { fclose(f); return -1; }
     fclose(f);
 
 got_size:
     f = fopen("/sys/class/graphics/fb0/bits_per_pixel", "r");
     if (!f) return -1;
-    fscanf(f, "%d", &fb_bpp);
+    if (fscanf(f, "%d", &fb_bpp) != 1) { fclose(f); return -1; }
     fclose(f);
 
     fb_stride = fb_w * (fb_bpp / 8);
@@ -107,8 +107,9 @@ static void encode_pixel(uint8_t *dst, uint8_t r, uint8_t g, uint8_t b)
 static void fill_row(int fd, int y, int x0, int n, uint8_t r, uint8_t g, uint8_t b)
 {
     int ppb = fb_bpp / 8;
-    /* Stack buffer: 800 px × 4 bytes = 3200 B — fits comfortably. */
+    /* Stack buffer: 800 px × 4 bytes = 3200 B. Clamp n to buffer capacity. */
     uint8_t buf[800 * 4];
+    if (n > 800) n = 800;
     uint8_t px[4];
     encode_pixel(px, r, g, b);
     for (int i = 0; i < n; i++)
@@ -138,8 +139,9 @@ static void draw_text(int fd, const char *text, int x0, int y0)
     int cw  = 8 * SCALE;
     int ch  = 8 * SCALE;
     int len = (int)strlen(text);
+    if (len > 15) len = 15;   /* buffer holds "255.255.255.255" (15 chars) max */
 
-    /* "255.255.255.255" = 15 chars × 24 px × 4 B = 1440 B max per row */
+    /* 15 chars × 24 px × 4 B = 1440 B max per row */
     uint8_t line[15 * 8 * SCALE * 4];
 
     uint8_t fg[4], bg[4];
