@@ -58,7 +58,7 @@ This is how the user explicitly asks you to check in on the project.
 
 Every commit message must follow this format:
 
-```
+```text
 type: short description (imperative, lowercase, no period)
 ```
 
@@ -96,7 +96,7 @@ Tag releases using `vMAJOR.MINOR.PATCH`:
 - **MINOR** — new features that do not break existing functionality
 - **PATCH** — bug fixes, typo corrections, minor improvements
 
-This project has no automated CI build pipeline. Releases are git tags only.
+Releases are cut as git tags only. The CI pipeline (build-lite.yml) builds and publishes artifacts for each PR and push to master, but does not auto-publish releases.
 
 **To cut a release:**
 ```bash
