@@ -6,9 +6,9 @@
  * No external dependencies — POSIX + Linux headers only.
  * RSS at idle: ~200 KB vs ~15 MB for the Python equivalent.
  *
- * Layout (mirrors show_ip.py — must stay in sync):
+ * Layout:
  *   Upper-right: WiFi icon | gap | Ethernet icon  (both 25×25 px)
- *   Bottom-centre: primary IPv4 address in scaled 8×8 bitmap font
+ *   Bottom-center: primary IPv4 address in scaled 8×8 bitmap font
  */
 
 #include <errno.h>
@@ -132,7 +132,7 @@ static void draw_icon(int fd, const uint8_t *rgb, int x0, int y0)
     }
 }
 
-/* Draw scaled bitmap text centred at (x0, y0). */
+/* Draw scaled bitmap text centered at (x0, y0). */
 static void draw_text(int fd, const char *text, int x0, int y0)
 {
     int ppb = fb_bpp / 8;
@@ -266,7 +266,7 @@ static void update(int fb)
     draw_icon(fb, wifi_rgb, x0_wifi, CORNER_MARGIN);
     draw_icon(fb, eth_rgb,  x0_eth,  CORNER_MARGIN);
 
-    /* Clear + draw IP text at bottom centre. */
+    /* Clear + draw IP text at bottom center. */
     int cw    = 8 * SCALE;
     int ch    = 8 * SCALE;
     int len   = (int)strlen(ip);
