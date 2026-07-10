@@ -51,10 +51,33 @@ Format:
    - `kill $(pidof iwd)` is subject to word splitting if `pidof` returns multiple PIDs or whitespace. ShellCheck flags this.
    - Fixed: changed to `kill "$(pidof iwd)"`.
 
-8. **iwd startup not verified before WiFi polling** (`install_steps.sh` lines 82-83) — *logged, not implemented*
+8. **iwd startup not verified before WiFi polling** (`install_steps.sh` lines 82-83)
    - If `iwd` fails to start, the script waits the full ~30s and then reports a generic "WiFi did not connect" message rather than "iwd failed to start". CR suggested capturing `$!` and checking with `kill -0`.
-   - Decision: skipped for now — the install context is a one-shot operation with `set -x` logging active, so the failure would be visible in the log output. Consider implementing if users report confusion.
+   - Fixed: implemented `IWD_PID=$!` capture and `kill -0 $IWD_PID` check after `sleep 8`.
 
 9. **GitHub Actions not pinned to commit SHAs** (`.github/workflows/build-lite.yml` lines 21-25) — *logged, not implemented*
    - CodeRabbit flagged `actions/checkout@v4` as a supply-chain risk; recommended pinning to commit SHA. CR itself rated this a "Poor tradeoff" for OSS projects.
    - Decision: skipped — this is an open-source project and version-tag references are standard practice here. The risk/maintenance tradeoff does not justify pinning.
+
+## 2026-07-10 — PR #38 `build-lite.yml`, `.claude/CLAUDE.md` (CR follow-up: artifact name drift + pagination)
+
+**Review:** CR flagged 4 issues across 2 files in subsequent review runs.
+**Result:** 2 fixed; 2 logged (CLAUDE.md edit requires user authorization per system policy).
+
+### Findings
+
+1. **Artifact name hardcoded in JS script** (`.github/workflows/build-lite.yml` line 156)
+   - `artifactName` was rebuilt in JavaScript from PR number + SHA rather than reading `steps.artifact.outputs.name`. A future rename of the upload step's naming pattern would desync the posted comment from the actual artifact.
+   - Fixed: added `env: ARTIFACT_NAME: ${{ steps.artifact.outputs.name }}` and changed JS to `process.env.ARTIFACT_NAME`.
+
+2. **`listComments` only fetches first page** (`.github/workflows/build-lite.yml` lines 167-171)
+   - The default `github.rest.issues.listComments` call returns page 1 only (~30 comments). On a PR with many comments the marker check could miss an existing bot comment and post a duplicate.
+   - Fixed: replaced with `github.paginate(github.rest.issues.listComments, ...)` to retrieve all pages before searching for the marker.
+
+3. **Code fence missing language tag** (`.claude/CLAUDE.md` line 61) — *logged, requires user action*
+   - The commit-message format example fence has no language identifier, causing markdownlint to warn. Should be ` ```text `.
+   - Blocked: self-modification policy prevents editing `.claude/CLAUDE.md` without explicit user authorization.
+
+4. **Outdated CI statement** (`.claude/CLAUDE.md` line 99) — *logged, requires user action*
+   - "This project has no automated CI build pipeline" is now false; PR #38 added `build-lite.yml`.
+   - Blocked: same self-modification policy. Suggested replacement: "Releases are cut as git tags only. The CI pipeline (`build-lite.yml`) builds and publishes artifacts for each PR and push to `master`, but does **not** auto-publish releases."
