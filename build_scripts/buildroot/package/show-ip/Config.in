@@ -1,0 +1,8 @@
+config BR2_PACKAGE_SHOW_IP
+	bool "show-ip"
+	default y
+	help
+	  Framebuffer network status overlay for the AD5M lite variant.
+	  Displays WiFi signal strength, Ethernet state, and the printer's
+	  IPv4 address on the LCD at boot.  Stays resident and redraws
+	  automatically on network changes via NETLINK_ROUTE.

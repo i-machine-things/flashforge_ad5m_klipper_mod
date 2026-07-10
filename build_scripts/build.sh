@@ -1,4 +1,4 @@
-# !/bin/bash
+#!/bin/bash
 # Build Wrapper Script for AD5M Klipper Mod
 set -e
 
@@ -233,7 +233,7 @@ checksums()
 }
 
 cd $GIT_ROOT
-GIT_VERSION=$(git describe)
+GIT_VERSION=$(git describe --tags --always --abbrev=7)
 
 # run command
 $@

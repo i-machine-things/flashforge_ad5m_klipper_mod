@@ -1,0 +1,15 @@
+# Rename this file to match your WiFi network name exactly, e.g. "MyHomeWifi.psk"
+# The filename (without .psk) must match the SSID character-for-character.
+#
+# Copy to your USB drive at:
+#   klipper_mod/var/lib/iwd/<YOUR_SSID>.psk
+#
+# WARNING: This file MUST use Unix line endings (LF, not CRLF).
+#          Do NOT edit with Windows Notepad. Use Notepad++, VS Code, or similar
+#          and verify the line ending is set to LF before saving.
+
+[Settings]
+AutoConnect=true
+
+[Security]
+Passphrase=YourPasswordHere

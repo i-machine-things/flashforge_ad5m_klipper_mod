@@ -1,4 +1,10 @@
 build_output/*
 device_files/images/fb
+device_files/images/preview_*.png
 *.md.backup
+*.psk
+!docs/*.psk
+*.log
+Thumbs.db
+.claude/scheduled_tasks.lock
 .claude/settings.local.json

@@ -25,6 +25,7 @@ MOONRAKER_DEPENDENCIES = \
 	python-jinja2 \
 	python-dbus-fast \
 	python-apprise \
+	python-pyyaml \
 	python-ldap3 \
 	python-periphery \
 	python-importlib-metadata \

@@ -22,3 +22,9 @@ Also see [Guppy Screen](GUPPY_SCREEN.md) for known issues with it. Use it as-is 
 * USB device failures:  
 USB devices connected to the screen can ocassionaly fail to be detected due to poor shielding of the USB connection in the printer. 
 In most cases a reboot will fix the issue. For external connected webcams it's recommended to use a short USB cable.
+
+* AD5M Pro — circulation servo grinds at startup:  
+The servo that controls the circulation fan door can make a grinding noise at startup or homing if its fully-closed angle doesn't match the hardware default in the config.
+The config ships with `initial_angle: 95` in `printer.base.cfg`. Some Pro units require `initial_angle: 115` to fully close without grinding.
+If you hear this noise, SSH in and edit `/root/printer_data/config/printer.base.cfg`: find the `[servo my_servo]` section and change `initial_angle: 95` to `initial_angle: 115`.
+Also open `macros-pro.cfg` and replace every instance of `ANGLE=95` with `ANGLE=115`, then save and restart Klipper.
