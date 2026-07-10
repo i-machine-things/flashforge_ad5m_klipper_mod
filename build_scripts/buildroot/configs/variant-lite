@@ -2,3 +2,6 @@
 
 # Variant Overlays
 BR2_ROOTFS_OVERLAY="../../build_overlays/common ../../build_overlays/variant-lite"
+
+# Network status overlay (replaces show_ip.py)
+BR2_PACKAGE_SHOW_IP=y
